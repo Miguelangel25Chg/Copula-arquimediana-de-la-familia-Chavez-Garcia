@@ -1,0 +1,43 @@
+using Plots, NLsolve
+
+# --- 1. DEFINICIÓN DE LOS GENERADORES CHÁVEZ ---
+
+# Generador No Estricto (Punto 2 de tu tarea) [cite: 86]
+phi_no_estricto(t) = t <= 1e-9 ? 1.0 : exp(1.0) * exp(-1.0 / (1.0 - sqrt(t)))
+
+# Generador Estricto (Punto 1 de tu tarea: transformado vía -ln) [cite: 57]
+psi_estricto(t) = t <= 1e-9 ? Inf : -log(phi_no_estricto(t))
+
+# --- 2. PSEUDO-INVERSAS NUMÉRICAS ---
+# Usamos bisección para garantizar precisión en la "cirugía" de la curva [cite: 7]
+
+function pseudo_inversa(target, f)
+    if target <= 0.0 return 1.0 end
+    if target >= 50.0 return 0.0 end # Límite para el infinito numérico
+    
+    low, high = 0.0, 1.0
+    for _ in 1:40 # Alta precisión
+        mid = (low + high) / 2
+        f(mid) > target ? low = mid : high = mid
+    end
+    return (low + high) / 2
+end
+
+# --- 3. CONSTRUCCIÓN DE LAS CÓPULAS (ESTRUCTURA ARQUIMEDIANA) [cite: 5] ---
+
+C_chavez_no_est(u, v) = pseudo_inversa(phi_no_estricto(u) + phi_no_estricto(v), phi_no_estricto)
+C_chavez_est(u, v) = pseudo_inversa(psi_estricto(u) + psi_estricto(v), psi_estricto)
+
+# --- 4. GENERACIÓN DE CURVAS DE NIVEL (PUNTO 4) [cite: 143] ---
+
+x = y = range(0.001, 0.999, length=100)
+z_no_est = [C_chavez_no_est(i, j) for i in x, j in y]
+z_est = [C_chavez_est(i, j) for i in x, j in y]
+
+# Graficar
+p1 = contour(x, y, z_no_est, title="Curvas de Nivel: Cópula No Estricta (Chávez)", 
+             xlabel="u", ylabel="v", fill=true, color=:viridis)
+p2 = contour(x, y, z_est, title="Curvas de Nivel: Cópula Estricta (Generalizada)", 
+             xlabel="u", ylabel="v", fill=true, color=:magma)
+
+plot(p1, p2, layout=(1,2), size=(1000, 450))
